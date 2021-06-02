@@ -31,7 +31,7 @@ from collections import OrderedDict
 from itertools import chain
 
 from django.db import connection, models, transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Max
 from django.db.models.query import QuerySet
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.contrib.contenttypes.fields import GenericRelation, GenericForeignKey
@@ -959,7 +959,23 @@ class Document2QueryMixin(object):
     if not include_trashed:
       docs = docs.exclude(is_trashed=True)
 
-    return docs.defer('description', 'data', 'extra', 'search').distinct().order_by('-last_modified')
+    docs = docs.defer('description', 'data', 'extra', 'search')
+
+    unique_fields  = ['id', 'owner_id', 'name', 'uuid', 'type', 'connector_id', 'last_modified', 'version', 'is_history', 'is_managed', 'is_trashed', 'parent_directory_id']
+    duplicates = (
+      docs.values(*unique_fields)
+      .order_by()
+      .annotate(max_id=Max('id'), count_id=Count('id'))
+      .filter(count_id__gt=1)
+    )
+    for duplicate in duplicates:
+      (
+        docs
+        .filter(**{x: duplicate[x] for x in unique_fields})
+        .exclude(id=duplicate['max_id'])
+        .delete()
+      )
+    return docs.order_by('-last_modified')
 
 
   def search_documents(self, types=None, search_text=None, order_by=None):
