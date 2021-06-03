@@ -102,7 +102,12 @@ def list_designs(request):
   owner = request.GET.get('owner', '')
   name = request.GET.get('name', '')
 
-  if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+  if sys.version_info[0] > 2:
+    _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+  else:
+    _is_ajax = request.is_ajax()
+
+  if _is_ajax:
     return render_json({
       'designs': _list_designs(request, owner, name)
     }, js_safe=True)

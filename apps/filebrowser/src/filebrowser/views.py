@@ -250,6 +250,11 @@ def view(request, path):
           '/filebrowser/view=' + urllib_quote(trash_path.encode('utf-8'), safe=SAFE_CHARACTERS_URI_COMPONENTS)
       )
 
+  if sys.version_info[0] > 2:
+    _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+  else:
+    _is_ajax = request.is_ajax()
+
   try:
     stats = request.fs.stats(path)
     if stats.isDir:
@@ -258,7 +263,7 @@ def view(request, path):
       return display(request, path)
   except S3FileSystemException as e:
     msg = _("S3 filesystem exception.")
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+    if _is_ajax:
       exception = {
         'error': smart_str(e)
       }
@@ -271,7 +276,7 @@ def view(request, path):
     if "Connection refused" in str(e):
       msg += _(" The HDFS REST service is not available. ")
 
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+    if _is_ajax:
       exception = {
         'error': msg
       }
@@ -341,9 +346,16 @@ def edit(request, path, form=None):
       breadcrumbs=parse_breadcrumbs(path),
       is_embeddable=request.GET.get('is_embeddable', False),
       show_download_button=SHOW_DOWNLOAD_BUTTON.get())
-  if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
-    data['stats'] = stats;
-    data['form'] = form;
+
+  if sys.version_info[0] > 2:
+    _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+  else:
+    _is_ajax = request.is_ajax()
+
+  if not _is_ajax:
+    data['stats'] = stats
+    data['form'] = form
+
   return render("edit.mako", request, data)
 
 def save_file(request):
@@ -685,7 +697,12 @@ def display(request, path):
     raise PopupException(_("Not a file: '%(path)s'") % {'path': path})
 
   # display inline files just if it's not an ajax request
-  if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+  if sys.version_info[0] > 2:
+    _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+  else:
+    _is_ajax = request.is_ajax()
+
+  if not _is_ajax:
     if _can_inline_display(path):
       return redirect(reverse('filebrowser:filebrowser_views_download', args=[path]) + '?disposition=inline')
 
@@ -1196,7 +1213,13 @@ def generic_op(form_class, request, op, parameter_names, piggyback=None, templat
         ret["result_error"] = True
 
       ret['user'] = request.user
-      if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+
+      if sys.version_info[0] > 2:
+        _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+      else:
+        _is_ajax = request.is_ajax()
+
+      if _is_ajax:
         return HttpResponse()
       else:
         return render(template, request, ret)

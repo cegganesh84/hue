@@ -18,6 +18,7 @@
 import datetime
 import logging
 import json
+import sys
 
 from django.views.decorators.http import require_GET
 
@@ -41,7 +42,12 @@ def index(request):
       'metric': global_registry().dump_metrics(),
   }
 
-  if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.GET.get("format") == "json":
+  if sys.version_info[0] > 2:
+    _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+  else:
+    _is_ajax = request.is_ajax()
+
+  if _is_ajax or request.GET.get("format") == "json":
     return JsonResponse(rep, json_dumps_params={'indent': indent})
   else:
     return render(

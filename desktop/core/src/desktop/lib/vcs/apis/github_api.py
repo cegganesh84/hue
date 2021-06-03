@@ -75,7 +75,13 @@ class GithubApi(Api):
         'status': -1,
         'auth_url':auth_url
       }
-      if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+
+      if sys.version_info[0] > 2:
+        _is_ajax = request.headers.get('x-requested-with') == 'XMLHttpRequest'
+      else:
+        _is_ajax = request.is_ajax()
+
+      if _is_ajax:
         return JsonResponse(response)
 
       return HttpResponseRedirect(auth_url)
